@@ -30,8 +30,19 @@ async function run() {
       ),
       10000
     );
+
     await readyToPump.click();
     console.log("clicked ready to pump");
+
+    // Wait for the "Ready to Pump" button to be clickable before clicking
+    const rejectCookies = await driver.wait(
+      until.elementIsVisible(
+        driver.findElement(By.xpath("/html/body/div[2]/div[1]/button[3]"))
+      ),
+      10000
+    );
+
+    rejectCookies.click();
 
     // Step 2: Wait for the "Connect Wallet" button to be visible and clickable
     const connectWalletButton = await driver.wait(
@@ -75,7 +86,11 @@ async function run() {
     try {
       await driver
         .switchTo()
-        .frame(driver.findElement(By.xpath("/html/body/div[3]/iframe")));
+        .frame(
+          driver.wait(
+            until.elementLocated(By.xpath("/html/body/div[3]/iframe"))
+          )
+        );
       console.log("switched to iframe");
 
       await driver.sleep(3000);
@@ -238,7 +253,11 @@ async function run() {
       try {
         await driver
           .switchTo()
-          .frame(driver.findElement(By.xpath("/html/body/div[3]/iframe")));
+          .frame(
+            driver.wait(
+              until.elementLocated(By.xpath("/html/body/div[3]/iframe"))
+            )
+          );
         console.log("switched to iframe");
 
         const actions = driver.actions({ async: true });
@@ -282,42 +301,68 @@ async function run() {
         );
         await approveBtn.click();
         console.log("approveBtn clicked");
-        await driver.close();
-        console.log("Pop-up window closed");
+        // await driver.close();
+        // console.log("Pop-up window closed");
 
         await driver.switchTo().window(currentWindow);
         console.log("Switched back to the main window");
 
-        // Locate the element
+        // Locate the target element
         const targetElement = await driver.findElement(
           By.xpath("/html/body/div[1]/main/div[1]/div[2]/div[1]/div[5]/div")
         );
 
-        // Scroll to the element and wait for the page to settle
+        // Scroll the element into view
         await driver.executeScript(
-          `const rect = arguments[0].getBoundingClientRect();
-       window.scrollBy(0, rect.top - (window.innerHeight / 2));`,
+          "arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });",
           targetElement
         );
 
-        // Add a delay to ensure the page has time to settle after scrolling
-        await driver.sleep(1000); // Adjust the sleep time as necessary (1000ms = 1 second)
+        // Wait until the element is visible and interactable
+        await driver.wait(
+          until.elementIsVisible(targetElement),
+          5000,
+          "Element not visible after waiting"
+        );
 
-        // Ensure the element is interactable and visible
-        await driver.wait(until.elementIsVisible(targetElement), 5000);
+        // Check if the element is clickable
+        await driver.wait(
+          until.elementIsEnabled(targetElement),
+          5000,
+          "Element is not enabled for interaction"
+        );
 
-        // Get the element's position and ensure the coordinates are integers
+        // Debugging: Log details about the element's state
         const rect = await driver.executeScript(
           `const rect = arguments[0].getBoundingClientRect();
-       return { x: Math.floor(rect.left + (rect.width / 2)), 
-                y: Math.floor(rect.top + (rect.height / 2)) };`,
+       return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };`,
+          targetElement
+        );
+        console.log("Element dimensions and position:", rect);
+
+        // If necessary, highlight the element for debugging
+        await driver.executeScript(
+          "arguments[0].style.border='2px solid red';",
           targetElement
         );
 
-        // Perform the click action at the calculated coordinates
-        await driver.actions().move({ x: rect.x, y: rect.y }).click().perform();
-        console.log("Clicked the target element");
-        // postBtn.click();
+        // Perform the click using JavaScript (if actions don't work)
+        await driver.executeScript("arguments[0].click();", targetElement);
+        console.log("Clicked the target element using JavaScript");
+
+        const replyTextField = await driver.wait(
+          until.elementLocated(By.xpath("/html/body/div[4]/div[1]/textarea")),
+          10000
+        );
+
+        await replyTextField.sendKeys(reply);
+
+        const postBtn = await driver.wait(
+          until.elementLocated(By.xpath("/html/body/div[4]/button")),
+          10000
+        );
+
+        await postBtn.click();
       } catch (error) {
         console.log("failed connecting created wallet", error);
       }
